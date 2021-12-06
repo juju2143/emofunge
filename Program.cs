@@ -34,7 +34,7 @@ namespace emofunge
             }
             catch (OptionException e)
             {
-                Console.WriteLine(e.Message);
+                Console.Error.WriteLine(e.Message);
                 return 1;
             }
 
@@ -46,7 +46,7 @@ namespace emofunge
 
             if(extra.Count == 0)
             {
-                Console.WriteLine("error: no file loaded");
+                Console.Error.WriteLine("error: no file loaded");
                 return 129;
             }
 
@@ -57,7 +57,7 @@ namespace emofunge
             }
             catch(Exception ex)
             {
-                Console.WriteLine("error: can't read file: " + ex.Message);
+                Console.Error.WriteLine("error: can't read file: " + ex.Message);
                 return 1;
             }
 
