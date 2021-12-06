@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Globalization;
 using System.Text;
 
@@ -60,7 +59,7 @@ namespace emofunge
         }
         private int _dirX = 1;
         private int _dirY = 0;
-        Direction CurrentDirection
+        public Direction CurrentDirection
         {
             get
             {
@@ -79,9 +78,11 @@ namespace emofunge
         }
         bool StringMode = false;
         static public bool Debug { get; set; }
-        public Cpu(string[] prg)
+        public CommandSet Commands;
+        public Cpu(string[] prg, bool debug)
         {
-            Debug = false;
+            Commands = new CommandSet();
+            Debug = debug;
             MainStack = new Stack<int>(256);
             MacroStack = new Stack<Tuple<Cell, Direction>>(256);
             Macros = new Dictionary<int, Cell>(256);
@@ -104,12 +105,9 @@ namespace emofunge
                     string cur = (string)teEnum.Current;
                     parsed = parsed.Append(cur).ToArray();
                     Rune[] runes = cur.EnumerateRunes().ToArray();
-                    foreach(Rune r in runes)
+                    if(runes.Skip(1).Contains(new Rune(Commands.MacroDef)))
                     {
-                        if(r.Value == 0x20DE)
-                        {
-                            Macros[runes[0].Value] = new Cell(x, y);
-                        }
+                        Macros[runes[0].Value] = new Cell(x, y);
                     }
                     if(Debug)
                     {
@@ -166,7 +164,7 @@ namespace emofunge
             Rune cmd = runes[0];
             Rune[] mods = runes.Skip(1).ToArray();
             if(Debug) Console.WriteLine("U+{0:X} {1} @{2},{3}", cmd.Value, cmd.ToString(), pc.x, pc.y);
-            if(cmd.Value == 0x1f9f5)
+            if(cmd.Value == Commands.StringMode)
             {
                 StringMode = !StringMode;
                 Move();
@@ -183,132 +181,136 @@ namespace emofunge
             {
                 try
                 {
-                    #region Values
-                    if(cmd.Value >= 0x2800 && cmd.Value <= 0x28FF)
-                    { // push num to stack
-                        int val = cmd.Value - 0x2800;
-                        // TODO: Combining characters
-                        //CurrentRunes.Count(x => x.Value == )
-                        MainStack.Push(val);
-                        Move();
-                    }
-                    #endregion
-                    else if(CharUnicodeInfo.GetUnicodeCategory(cmd.Value) == UnicodeCategory.SpaceSeparator)
-                    { // explicitly defined space
-                        Move();
-                    }
-                    else switch (cmd.Value)
+                    switch(cmd.Value)
                     {
+                    #region Values
+                        case var v when Commands.IsValue(v):
+                        { // push num to stack
+                            int val = Commands.GetValue(cmd.Value);
+                            // TODO: Combining characters
+                            //CurrentRunes.Count(x => x.Value == )
+                            MainStack.Push(val);
+                            Move();
+                        } break;
+                    #endregion
+                    #region Space
+                        case var v when Commands.IsSpace(v):
+                        { // explicitly defined space
+                            Move();
+                        } break;
+                    #endregion
                     #region Output
-                        case 0x1f4df: // pop value and print integer
-                        {
+                        case var v when v == Commands.PrintInt:
+                        { // pop value and print integer
                             Console.Write("{0} ", MainStack.Pop());
                             Move();
                         } break;
-                        case 0x1f5a8: // pop value and print Unicode character
-                        {
+                        case var v when v == Commands.PrintChar:
+                        { // pop value and print Unicode character
                             Console.Write(new Rune(MainStack.Pop()).ToString());
                             Move();
                         } break;
                     #endregion
                     #region Input
-                        case 0x2328: // input character
+                        case var v when v == Commands.InputChar:
                         {
                             MainStack.Push(Console.Read());
+                            Move();
                         } break;
-                        case 0x1f9ee: // input number
+                        case var v when v == Commands.InputInt:
                         {
                             int result;
                             while(!int.TryParse(Console.ReadLine(), NumberStyles.Integer, null, out result)){}
                             MainStack.Push(result);
+                            Move();
                         } break;
                     #endregion
                     #region Movement and control
-                        case 0x1f6d1: // stop
+                        case var v when v == Commands.End:
                         {
                             CurrentDirection = Direction.None;
                         } break;
-                        case 0x27a1: // move east
+                        case var v when v == Commands.East:
                         {
                             CurrentDirection = Direction.East;
                             Move();
                         } break;
-                        case 0x2b05: // move west
+                        case var v when v == Commands.West:
                         {
                             CurrentDirection = Direction.West;
                             Move();
                         } break;
-                        case 0x2b06: // move north
+                        case var v when v == Commands.North:
                         {
                             CurrentDirection = Direction.North;
                             Move();
                         } break;
-                        case 0x2b07: // move south
+                        case var v when v == Commands.South:
                         {
                             CurrentDirection = Direction.South;
                             Move();
                         } break;
-                        case 0x2196: // move northwest
+                        case var v when v == Commands.Northwest:
                         {
                             CurrentDirection = Direction.Northwest;
                             Move();
                         } break;
-                        case 0x2197: // move northeast
+                        case var v when v == Commands.Northeast:
                         {
                             CurrentDirection = Direction.Northeast;
                             Move();
                         } break;
-                        case 0x2198: // move southeast
+                        case var v when v == Commands.Southeast:
                         {
                             CurrentDirection = Direction.Southeast;
                             Move();
                         } break;
-                        case 0x2199: // move southwest
+                        case var v when v == Commands.Southwest:
                         {
                             CurrentDirection = Direction.Southwest;
                             Move();
                         } break;
-                        case 0x2194: // move west-east
+                        case var v when v == Commands.WestEast:
                         {
                             int a = MainStack.Pop();
                             CurrentDirection = a==0?Direction.E:Direction.W;
                             Move();
                         } break;
-                        case 0x2195: // move west-east
+                        case var v when v == Commands.NorthSouth:
                         {
                             int a = MainStack.Pop();
                             CurrentDirection = a==0?Direction.S:Direction.N;
                             Move();
                         } break;
-                        case 0x2921: // move west-east
+                        case var v when v == Commands.NorthwestSoutheast:
                         {
                             int a = MainStack.Pop();
                             CurrentDirection = a==0?Direction.SE:Direction.NW;
                             Move();
                         } break;
-                        case 0x2922: // move west-east
+                        case var v when v == Commands.NortheastSouthwest:
                         {
                             int a = MainStack.Pop();
                             CurrentDirection = a==0?Direction.SW:Direction.NE;
                             Move();
                         } break;
-                        case 0x21ba: // turn anticlockwise
+                        case var v when v == Commands.Anticlockwise:
                         {
                             int dir = ((int)CurrentDirection-2)&7;
                             CurrentDirection = (Direction)dir;
                             Move();
                         } break;
-                        case 0x21bb: // turn clockwise
+                        case var v when v == Commands.Clockwise:
                         {
                             int dir = ((int)CurrentDirection+2)&7;
                             CurrentDirection = (Direction)dir;
                             Move();
                         } break;
-                        case 0x1f309: // bridge
-                        {
+                        case var v when v == Commands.Skip: 
+                        {// aka bridge
                             Move(); Move();
                         } break;
-                        case 0x1f9ed: // random
+                        case var v when v == Commands.Random:
                         {
                             Random r = new Random();
                             CurrentDirection = (Direction)r.Next(8);
@@ -316,61 +318,61 @@ namespace emofunge
                         } break;
                     #endregion
                     #region Math
-                        case 0x2716: // Multiply
+                        case var v when v == Commands.Multiply:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
                             MainStack.Push(a*b);
                             Move();
                         } break;
-                        case 0x2795: // Add
+                        case var v when v == Commands.Add:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
                             MainStack.Push(a+b);
                             Move();
                         } break;
-                        case 0x2796: // Substract
+                        case var v when v == Commands.Substract:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
                             MainStack.Push(b-a);
                             Move();
                         } break;
-                        case 0x2797: // Divide
+                        case var v when v == Commands.Divide:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
                             MainStack.Push(b/a);
                             Move();
                         } break;
-                        case 0x1f4a0: // Modulo
+                        case var v when v == Commands.Modulo:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
                             MainStack.Push(b%a);
                             Move();
                         } break;
-                        case 0x1f6ab: // Not
+                        case var v when v == Commands.Not:
                         {
                             int a = MainStack.Pop();
                             MainStack.Push(a==0?1:0);
                             Move();
                         } break;
-                        case 0x1f50d: // Greater than
+                        case var v when v == Commands.GreaterThan:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
                             MainStack.Push(b>a?1:0);
                             Move();
                         } break;
-                        case 0x1fa9e: // Duplicate
+                        case var v when v == Commands.Duplicate:
                         {
                             int a = MainStack.Peek();
                             MainStack.Push(a);
                             Move();
                         } break;
-                        case 0x1f500: // Duplicate
+                        case var v when v == Commands.Swap:
                         {
                             int a = MainStack.Pop();
                             int b = MainStack.Pop();
@@ -378,21 +380,21 @@ namespace emofunge
                             MainStack.Push(b);
                             Move();
                         } break;
-                        case 0x1f5D1: // Discard
+                        case var v when v == Commands.Discard:
                         {
                             MainStack.Pop();
                             Move();
                         } break;
                     #endregion
                     #region Misc
-                        case 0x231A: // Timestamp
+                        case var v when v == Commands.Time:
                         {
                             MainStack.Push((int)DateTimeOffset.Now.ToUnixTimeSeconds());
                             Move();
                         } break;
                     #endregion
                     #region Macros
-                        case 0x21a9: // Return
+                        case var v when v == Commands.Return:
                         {
                             Tuple<Cell, Direction> ret = MacroStack.Pop();
                             pc = ret.Item1;
@@ -401,7 +403,7 @@ namespace emofunge
                         } break;
                         default: // Undefined
                         {
-                            if(Macros.ContainsKey(cmd.Value) && !runes.Contains(new Rune(0x20DE)))
+                            if(Macros.ContainsKey(cmd.Value) && !mods.Contains(new Rune(Commands.MacroDef)))
                             {
                                 Cell coords = Macros[cmd.Value];
                                 MacroStack.Push(Tuple.Create(pc, CurrentDirection));
@@ -419,7 +421,8 @@ namespace emofunge
                 }
                 catch(InvalidOperationException)
                 {
-                    // TODO: do something when stack is empty
+                    // right now, commands silently abort when popping an empty stack
+                    // TODO: ckeck what Befunge does in that case
                     Move();
                 }
             }
