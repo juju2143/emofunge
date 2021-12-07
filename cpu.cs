@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 
@@ -27,7 +28,7 @@ namespace emofunge
         North = 0, Northeast, East, Southeast, South, Southwest, West, Northwest,
         None = -1
     }
-    struct Cell
+    struct Cell : IEquatable<Cell>
     {
         public int x;
         public int y;
@@ -36,25 +37,45 @@ namespace emofunge
             this.x = x;
             this.y = y;
         }
+        public bool Equals(Cell other)
+        {
+            //if(other is null)
+            //    return false;
+            return this.x == other.x && this.y == other.y;
+        }
+        public override bool Equals(object? obj) => Equals(obj as Cell?);
+        public override int GetHashCode() => (x, y).GetHashCode();
+        public override string ToString() => $"@{x},{y}";
     }
     class Cpu
     {
-        string[][] Prg;
+        Dictionary<Cell, string> Prg;
+        //string[][] Prg;
         Stack0 MainStack;
         Stack<Tuple<Cell, Direction>> MacroStack;
         Dictionary<int, Cell> Macros;
+        int _Width = 0;
+        int _Height = 0;
         public int Width
         {
             get
             {
-                return Prg.Aggregate(0, (acc, x) => Math.Max(acc, x.Length));
+                return _Width<=0?Prg.Aggregate(0, (acc, x) => Math.Max(acc, x.Key.x))+1:_Width;
+            }
+            set
+            {
+                _Width = value;
             }
         }
         public int Height
         {
             get
             {
-                return Prg.Length;
+                return _Height<=0?Prg.Aggregate(0, (acc, x) => Math.Max(acc, x.Key.y))+1:_Height;
+            }
+            set
+            {
+                _Height = value;
             }
         }
         private Cell _pc;
@@ -66,6 +87,7 @@ namespace emofunge
             }
             set
             {
+                // TODO: allow negative values
                 _pc.x = value.x%Width;
                 if(_pc.x<0)_pc.x+=Width;
                 _pc.y = value.y%Height;
@@ -94,31 +116,31 @@ namespace emofunge
         bool StringMode = false;
         static public bool Debug { get; set; }
         public CommandSet Commands;
-        public Cpu(string[] prg, bool debug)
+        public Cpu(string[] prg, bool debug, int capacity)
         {
             Commands = new CommandSet();
             Debug = debug;
-            MainStack = new Stack0(256);
-            MacroStack = new Stack<Tuple<Cell, Direction>>(256);
-            Macros = new Dictionary<int, Cell>(256);
+            MainStack = new Stack0(capacity);
+            MacroStack = new Stack<Tuple<Cell, Direction>>(capacity);
+            Macros = new Dictionary<int, Cell>(capacity);
             Prg = Parse(prg);
             if(Debug) Console.Error.WriteLine("size {0}x{1}", Width, Height);
             pc = new Cell(0,0);
             CurrentDirection = Direction.East;
         }
-        public string[][] Parse(string[] str)
+        public Dictionary<Cell, string> Parse(string[] str)
         {
-            string[][] ret = {};
+            Dictionary<Cell, string> ret = new Dictionary<Cell, string>{};
             int x = 0, y = 0;
             foreach (string line in str)
             {
-                string[] parsed = {};
                 TextElementEnumerator teEnum = StringInfo.GetTextElementEnumerator(line);
                 x=0;
                 while(teEnum.MoveNext())
                 {
                     string cur = (string)teEnum.Current;
-                    parsed = parsed.Append(cur).ToArray();
+                    if(cur != " ")
+                        ret[new Cell(x, y)] = cur;
                     Rune[] runes = cur.EnumerateRunes().ToArray();
                     if(runes.Skip(1).Contains(new Rune(Commands.MacroDef)))
                     {
@@ -134,7 +156,6 @@ namespace emofunge
                     }
                     x++;
                 }
-                ret = ret.Append(parsed).ToArray();
                 y++;
             }
             return ret;
@@ -144,12 +165,16 @@ namespace emofunge
         {
             try
             {
-                return Prg[c.y][c.x].EnumerateRunes().ToArray();
+                return Prg[c].EnumerateRunes().ToArray();
             }
-            catch (Exception)
+            catch (KeyNotFoundException)
             {
                 return " ".EnumerateRunes().ToArray();
             }
+        }
+        public Rune[] GetRunes(int x, int y)
+        {
+            return GetRunes(new Cell(x, y));
         }
 
         public Rune[] CurrentRunes
@@ -396,6 +421,24 @@ namespace emofunge
                     case var v when v == Commands.Discard:
                     {
                         MainStack.Pop0();
+                        Move();
+                    } break;
+                #endregion
+                #region Get/Put
+                    case var v when v == Commands.Get:
+                    {
+                        int y = MainStack.Pop0();
+                        int x = MainStack.Pop0();
+                        Rune[] r = GetRunes(x, y);
+                        MainStack.Push(r[0].Value);
+                        Move();
+                    } break;
+                    case var v when v == Commands.Put:
+                    {
+                        int y = MainStack.Pop0();
+                        int x = MainStack.Pop0();
+                        int u = MainStack.Pop0();
+                        Prg[new Cell(x, y)] = new Rune(u).ToString();
                         Move();
                     } break;
                 #endregion

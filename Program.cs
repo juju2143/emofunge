@@ -12,6 +12,10 @@ namespace emofunge
             Console.WriteLine();
             Console.WriteLine("Options:");
             p.WriteOptionDescriptions(Console.Out);
+            Console.WriteLine();
+            Console.WriteLine("Supported standards:");
+            Console.Write("  ");
+            Console.WriteLine(String.Join(", ", Enum.GetNames(typeof(CommandSets))));
         }
         static int Main(string[] args)
         {
@@ -20,11 +24,18 @@ namespace emofunge
             CommandSets set = CommandSets.Emofunge;
             bool showUsage = false;
             int verbosity = 0;
+            int width = 80;
+            int height = 25;
+            int stack = 256;
 
             OptionSet options = new OptionSet {
                 { "b|befunge", "Run Befunge-93 program", b => { if(b != null) set = CommandSets.Befunge93; }},
+                { "d|std=", "Change standard", (string d) => set = (CommandSets)Enum.Parse(typeof(CommandSets), d) },
+                { "h|height=", "Set field height (0 for infinite)", (int h) => height = h },
+                { "s|stack=", "Set stack size", (int s) => stack = s },
                 { "v", "Show debug messages", v => { if(v != null) ++verbosity; } },
-                { "h|help", "Send help", h => { showUsage = h != null; } },
+                { "w|width=", "Set field width (0 for infinite)", (int w) => width = w },
+                { "?|help", "Send help", h => { showUsage = h != null; } },
             };
 
             List<string> extra;
@@ -33,6 +44,11 @@ namespace emofunge
                 extra = options.Parse(args);
             }
             catch (OptionException e)
+            {
+                Console.Error.WriteLine(e.Message);
+                return 1;
+            }
+            catch (ArgumentException e)
             {
                 Console.Error.WriteLine(e.Message);
                 return 1;
@@ -61,8 +77,10 @@ namespace emofunge
                 return 1;
             }
 
-            cpu = new Cpu(prog, verbosity>0);
+            cpu = new Cpu(prog, verbosity>0, stack);
             cpu.Commands.Set = set;
+            cpu.Width = width;
+            cpu.Height = height;
             cpu.Run();
 
             return 0;

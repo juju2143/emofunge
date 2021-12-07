@@ -15,6 +15,7 @@ namespace emofunge
         Anticlockwise=0, Clockwise=0, Random=0,
         WestEast=0, NorthSouth=0, NorthwestSoutheast=0, NortheastSouthwest=0,
         Duplicate=0, Swap=0, Discard=0, Skip=0, Return=0, End=0,
+        Get=0, Put=0,
         Time=0;
         CommandSets _set;
         public CommandSets Set 
@@ -64,6 +65,8 @@ namespace emofunge
                         Duplicate = 0x1fa9e;
                         Swap = 0x1f500;
                         Discard = 0x1f5d1;
+                        Get = 0;
+                        Put = 0;
                         Time = 0x231a;
                         Return = 0x21a9;
                         break;
@@ -106,6 +109,8 @@ namespace emofunge
                         Duplicate = 0x3a;
                         Swap = 0x5c;
                         Discard = 0x24;
+                        Get = 0x67;
+                        Put = 0x70;
                         Time = 0;
                         Return = 0;
                         break;
