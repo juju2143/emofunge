@@ -381,14 +381,14 @@ namespace emofunge
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
-                        MainStack.Push(b/a);
+                        MainStack.Push(a!=0?b/a:0);
                         Move();
                     } break;
                     case var v when v == Commands.Modulo:
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
-                        MainStack.Push(b%a);
+                        MainStack.Push(a!=0?b%a:0);
                         Move();
                     } break;
                     case var v when v == Commands.Not:
