@@ -17,6 +17,15 @@ namespace emofunge
         Duplicate=0, Swap=0, Discard=0, Skip=0, Return=0, End=0,
         Get=0, Put=0,
         Time=0;
+        public Direction[] Directions = new Direction[8]{   Direction.N,
+                                                            Direction.NE,
+                                                            Direction.E,
+                                                            Direction.SE,
+                                                            Direction.S,
+                                                            Direction.SW,
+                                                            Direction.W,
+                                                            Direction.NW
+        };
         CommandSets _set;
         public CommandSets Set 
         {
@@ -69,6 +78,15 @@ namespace emofunge
                         Put = 0;
                         Time = 0x231a;
                         Return = 0x21a9;
+                        Directions = new Direction[8]{  Direction.N,
+                                                        Direction.NE,
+                                                        Direction.E,
+                                                        Direction.SE,
+                                                        Direction.S,
+                                                        Direction.SW,
+                                                        Direction.W,
+                                                        Direction.NW
+                        };
                         break;
                     case CommandSets.Befunge93:
                         // setting commands and modifiers to 0 ensures they're assigned to nothing
@@ -113,6 +131,11 @@ namespace emofunge
                         Put = 0x70;
                         Time = 0;
                         Return = 0;
+                        Directions = new Direction[4]{  Direction.N,
+                                                        Direction.E,
+                                                        Direction.S,
+                                                        Direction.W
+                        };
                         break;
                 }
             }

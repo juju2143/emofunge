@@ -52,7 +52,7 @@ namespace emofunge
         Dictionary<Cell, string> Prg;
         //string[][] Prg;
         Stack0 MainStack;
-        Stack<Tuple<Cell, Direction>> MacroStack;
+        Stack<(Cell, Direction)> MacroStack;
         Dictionary<int, Cell> Macros;
         int _Width = 0;
         int _Height = 0;
@@ -116,17 +116,19 @@ namespace emofunge
         bool StringMode = false;
         static public bool Debug { get; set; }
         public CommandSet Commands;
+        Random r;
         public Cpu(string[] prg, bool debug, int capacity)
         {
             Commands = new CommandSet();
             Debug = debug;
             MainStack = new Stack0(capacity);
-            MacroStack = new Stack<Tuple<Cell, Direction>>(capacity);
+            MacroStack = new Stack<(Cell, Direction)>(capacity);
             Macros = new Dictionary<int, Cell>(capacity);
             Prg = Parse(prg);
             if(Debug) Console.Error.WriteLine("size {0}x{1}", Width, Height);
             pc = new Cell(0,0);
             CurrentDirection = Direction.East;
+            r = new Random();
         }
         public Dictionary<Cell, string> Parse(string[] str)
         {
@@ -207,7 +209,6 @@ namespace emofunge
             if(cmd.Value == Commands.StringMode)
             {
                 StringMode = !StringMode;
-                Move();
             }
             else if(StringMode)
             {
@@ -215,7 +216,6 @@ namespace emofunge
                 {
                     MainStack.Push(item.Value);
                 }
-                Move();
             }
             else
             {
@@ -228,39 +228,40 @@ namespace emofunge
                         // TODO: Combining characters
                         //CurrentRunes.Count(x => x.Value == )
                         MainStack.Push(val);
-                        Move();
                     } break;
                 #endregion
                 #region Space
                     case var v when Commands.IsSpace(v):
                     { // explicitly defined space
-                        Move();
                     } break;
                 #endregion
                 #region Output
                     case var v when v == Commands.PrintInt:
                     { // pop value and print integer
                         Console.Write("{0} ", MainStack.Pop0());
-                        Move();
                     } break;
                     case var v when v == Commands.PrintChar:
                     { // pop value and print Unicode character
-                        Console.Write(new Rune(MainStack.Pop0()).ToString());
-                        Move();
+                        try
+                        {
+                            Console.Write(new Rune(MainStack.Pop0()).ToString());
+                        }
+                        catch(ArgumentOutOfRangeException)
+                        {
+                            // TODO: catch out of range characters
+                        }
                     } break;
                 #endregion
                 #region Input
                     case var v when v == Commands.InputChar:
                     {
-                        MainStack.Push(Console.ReadKey(true).KeyChar);
-                        Move();
+                        MainStack.Push(Console.ReadKey().KeyChar);
                     } break;
                     case var v when v == Commands.InputInt:
                     {
                         int result = 0;
                         while(!int.TryParse(Console.ReadLine(), NumberStyles.Integer, null, out result)){}
                         MainStack.Push(result);
-                        Move();
                     } break;
                 #endregion
                 #region Movement and control
@@ -271,88 +272,72 @@ namespace emofunge
                     case var v when v == Commands.East:
                     {
                         CurrentDirection = Direction.East;
-                        Move();
                     } break;
                     case var v when v == Commands.West:
                     {
                         CurrentDirection = Direction.West;
-                        Move();
                     } break;
                     case var v when v == Commands.North:
                     {
                         CurrentDirection = Direction.North;
-                        Move();
                     } break;
                     case var v when v == Commands.South:
                     {
                         CurrentDirection = Direction.South;
-                        Move();
                     } break;
                     case var v when v == Commands.Northwest:
                     {
                         CurrentDirection = Direction.Northwest;
-                        Move();
                     } break;
                     case var v when v == Commands.Northeast:
                     {
                         CurrentDirection = Direction.Northeast;
-                        Move();
                     } break;
                     case var v when v == Commands.Southeast:
                     {
                         CurrentDirection = Direction.Southeast;
-                        Move();
                     } break;
                     case var v when v == Commands.Southwest:
                     {
                         CurrentDirection = Direction.Southwest;
-                        Move();
                     } break;
                     case var v when v == Commands.WestEast:
                     {
                         int a = MainStack.Pop0();
                         CurrentDirection = a==0?Direction.E:Direction.W;
-                        Move();
                     } break;
                     case var v when v == Commands.NorthSouth:
                     {
                         int a = MainStack.Pop0();
                         CurrentDirection = a==0?Direction.S:Direction.N;
-                        Move();
                     } break;
                     case var v when v == Commands.NorthwestSoutheast:
                     {
                         int a = MainStack.Pop0();
                         CurrentDirection = a==0?Direction.SE:Direction.NW;
-                        Move();
                     } break;
                     case var v when v == Commands.NortheastSouthwest:
                     {
                         int a = MainStack.Pop0();
                         CurrentDirection = a==0?Direction.SW:Direction.NE;
-                        Move();
                     } break;
                     case var v when v == Commands.Anticlockwise:
                     {
                         int dir = ((int)CurrentDirection-2)&7;
                         CurrentDirection = (Direction)dir;
-                        Move();
                     } break;
                     case var v when v == Commands.Clockwise:
                     {
                         int dir = ((int)CurrentDirection+2)&7;
                         CurrentDirection = (Direction)dir;
-                        Move();
                     } break;
                     case var v when v == Commands.Skip: 
                     {// aka bridge
-                        Move(); Move();
+                        Move();
                     } break;
                     case var v when v == Commands.Random:
                     {
-                        Random r = new Random();
-                        CurrentDirection = (Direction)r.Next(8);
-                        Move();
+                        CurrentDirection = Commands.Directions[r.Next(Commands.Directions.Length)];
                     } break;
                 #endregion
                 #region Math
@@ -361,54 +346,46 @@ namespace emofunge
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
                         MainStack.Push(a*b);
-                        Move();
                     } break;
                     case var v when v == Commands.Add:
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
                         MainStack.Push(a+b);
-                        Move();
                     } break;
                     case var v when v == Commands.Substract:
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
                         MainStack.Push(b-a);
-                        Move();
                     } break;
                     case var v when v == Commands.Divide:
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
                         MainStack.Push(a!=0?b/a:0);
-                        Move();
                     } break;
                     case var v when v == Commands.Modulo:
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
                         MainStack.Push(a!=0?b%a:0);
-                        Move();
                     } break;
                     case var v when v == Commands.Not:
                     {
                         int a = MainStack.Pop0();
                         MainStack.Push(a==0?1:0);
-                        Move();
                     } break;
                     case var v when v == Commands.GreaterThan:
                     {
                         int a = MainStack.Pop0();
                         int b = MainStack.Pop0();
                         MainStack.Push(b>a?1:0);
-                        Move();
                     } break;
                     case var v when v == Commands.Duplicate:
                     {
                         int a = MainStack.Peek0();
                         MainStack.Push(a);
-                        Move();
                     } break;
                     case var v when v == Commands.Swap:
                     {
@@ -416,12 +393,10 @@ namespace emofunge
                         int b = MainStack.Pop0();
                         MainStack.Push(a);
                         MainStack.Push(b);
-                        Move();
                     } break;
                     case var v when v == Commands.Discard:
                     {
                         MainStack.Pop0();
-                        Move();
                     } break;
                 #endregion
                 #region Get/Put
@@ -431,22 +406,26 @@ namespace emofunge
                         int x = MainStack.Pop0();
                         Rune[] r = GetRunes(x, y);
                         MainStack.Push(r[0].Value);
-                        Move();
                     } break;
                     case var v when v == Commands.Put:
                     {
                         int y = MainStack.Pop0();
                         int x = MainStack.Pop0();
                         int u = MainStack.Pop0();
-                        Prg[new Cell(x, y)] = new Rune(u).ToString();
-                        Move();
+                        try
+                        {
+                            Prg[new Cell(x, y)] = new Rune(u).ToString();
+                        }
+                        catch(ArgumentOutOfRangeException)
+                        {
+                            // TODO: catch out of range characters
+                        }
                     } break;
                 #endregion
                 #region Misc
                     case var v when v == Commands.Time:
                     {
                         MainStack.Push((int)DateTimeOffset.Now.ToUnixTimeSeconds());
-                        Move();
                     } break;
                 #endregion
                 #region Macros
@@ -454,18 +433,15 @@ namespace emofunge
                     {
                         if(MacroStack.Count > 0)
                         {
-                            Tuple<Cell, Direction> ret = MacroStack.Pop();
-                            pc = ret.Item1;
-                            CurrentDirection = ret.Item2;
+                            (pc, CurrentDirection) = MacroStack.Pop();
                         }
-                        Move();
                     } break;
                     default: // Undefined
                     {
                         if(Macros.ContainsKey(cmd.Value) && !mods.Contains(new Rune(Commands.MacroDef)))
                         {
                             Cell coords = Macros[cmd.Value];
-                            MacroStack.Push(Tuple.Create(pc, CurrentDirection));
+                            MacroStack.Push((pc, CurrentDirection));
                             foreach (Rune mod in mods)
                             {
                                 MainStack.Push(mod.Value);                                    
@@ -473,11 +449,11 @@ namespace emofunge
                             pc = new Cell(coords.x, coords.y);
                             CurrentDirection = Direction.East;
                         }
-                        Move();
                     } break;
                 #endregion
                 }
             }
+            if(!(cmd.Value == Commands.End && !StringMode)) Move();
         }
         public void Run()
         {
